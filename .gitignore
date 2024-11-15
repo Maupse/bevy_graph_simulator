@@ -1,3 +1,4 @@
 /target
+.vscode
 build_pack.sh
 build.sh
