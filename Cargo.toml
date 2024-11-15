@@ -1,0 +1,32 @@
+[package]
+name = "bevy_graph_simulator"
+authors = ["Maups <maupse@proton.me>"]
+version = "0.1.0"
+edition = "2021"
+description = "A graph builder and algorithm simulator"
+license = "MIT"
+
+[profile.release]
+# Optimizes with size in mind. For size primary use s
+opt-level = "z"
+# lto = "fat"
+# codegen-units = 1
+
+[profile.dev]
+opt-level = 0
+
+[dependencies]
+bevy = "0.14.2"
+
+[lib]
+crate-type = ["cdylib"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy-inspector-egui = "0.27.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen ="0.2.95"
+
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"
+
