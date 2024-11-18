@@ -1,6 +1,6 @@
 mod build_graph;
 
-use bevy::{app::{PluginGroup, Startup}, prelude::{default, App, Camera2dBundle, Commands, DefaultPlugins, TextStyle}, text::{Text, Text2dBundle, TextSection}, window::{Window, WindowPlugin, WindowResolution}};
+use bevy::{app::{AppExit, PluginGroup, Startup, Update}, prelude::{default, App, Camera2dBundle, Commands, DefaultPlugins, EventReader, EventWriter, Query, TextStyle, With}, text::{Text, Text2dBundle, TextSection}, window::{PrimaryWindow, Window, WindowClosed, WindowPlugin, WindowResolution}};
 use build_graph::BuildGraphPlugin;
 
 pub fn run() {
@@ -14,9 +14,7 @@ pub fn run() {
     };
     
     app
-    .add_systems(Startup, (
-        hello_world,
-    ))
+    .add_systems(Startup, spawn_camera)
     .add_plugins(DefaultPlugins.set(WindowPlugin{primary_window: Some(primary_window), ..default()}));
 
 
@@ -41,18 +39,8 @@ pub fn run() {
     app.run();
 }
 
-fn hello_world(
-    mut commands: Commands,
-    
+fn spawn_camera(
+    mut commands: Commands
 ) {
-    println!("Hello World");
-    let hello_world_bundle = Text2dBundle {
-       text: Text {
-            sections: vec![TextSection::new("Hello World", TextStyle::default())],
-            ..default()
-       },
-       ..default()
-    };
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(hello_world_bundle);
 }

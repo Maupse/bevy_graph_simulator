@@ -1,26 +1,35 @@
 mod components;
 mod res;
+mod graph_interaction;
+mod kdtree;
+mod add_delete_edit;
 
-use std::process::{Command, CommandArgs};
 
-use bevy::{app::Startup, asset::Assets, color::Color, input::ButtonInput, math::Vec3, prelude::{App, AppExtStates, Changed, Circle, Commands, Entity, FromWorld, Interaction, Mesh, MouseButton, Plugin, Query, Res, ResMut, State, Update, With}, sprite::ColorMaterial};
-use components::{default_vertex, Edge, EditorState, GraphComponentBundle, Vertex};
-use res::{update_mouse_coords, GraphAssets, GraphSystems, MouseCoords};
+use bevy::{app::Startup, asset::Assets, color::Color, prelude::{App, Circle, Commands, Mesh, Plugin, ResMut, Update}, sprite::ColorMaterial};
+use graph_interaction::GraphInteractionPlugin;
+use res::{update_mouse_coords, GraphAssets, MouseCoords, Trees};
+use add_delete_edit::AddDeleteEditPlugin;
 
 pub struct BuildGraphPlugin;
 impl Plugin for BuildGraphPlugin {
     fn build(&self, app: &mut App) {
         app
+        .add_plugins(
+            (
+                AddDeleteEditPlugin,
+                GraphInteractionPlugin,
+            )
+        )
         .init_resource::<MouseCoords>()
-        .init_resource::<GraphSystems>()
-        .init_state::<EditorState>()
+        .init_resource::<Trees>()
         .add_systems(Startup, init_mesh)
         .add_systems(Update, (
                 update_mouse_coords,
-                interaction_listener,      
-        ));
+       ));
     }
 }
+
+pub const RADIUS: f32 = 50.0;
 
 fn init_mesh(
     mut commands: Commands,
@@ -28,98 +37,11 @@ fn init_mesh(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let graph_mesh = GraphAssets {
-        vertex: meshes.add(Circle::new(50.0)),
-        vertex_material: materials.add(ColorMaterial::from_color(Color::WHITE)),
-        edge_material: materials.add(ColorMaterial::default()), 
+        vertex: meshes.add(Circle::new(RADIUS)),
+        none_material: materials.add(ColorMaterial::from_color(Color::WHITE)),
+        hovered_material: materials.add(ColorMaterial::from_color(Color::linear_rgb(1., 0., 0.))),
+        pressed_material: materials.add(ColorMaterial::from_color(Color::linear_rgb(0., 1., 0.))),
     };
     
     commands.insert_resource(graph_mesh);
-}
-
-
-fn interaction_listener(
-    mouse_coords: Res<MouseCoords>,
-    state: Res<State<EditorState>> ,
-    q_vertex_interaction: Query<(&Interaction, Entity), (With<Vertex>, Changed<Interaction>)>,
-    q_edge_interaction: Query<(&Interaction, Entity), (With<Edge>, Changed<Interaction>)>,
-    mut commands: Commands,
-    mouse_buttons: Res<ButtonInput<MouseButton>>,
-    graph_systems: Res<GraphSystems>,
-) {
-    let curr_state = state.get();
-    let sys = &graph_systems.map;
-    match curr_state {
-        EditorState::Add => {
-           if mouse_buttons.just_released(MouseButton::Left) {
-                if q_vertex_interaction.is_empty() {
-                    commands.run_system(sys["add_vertex"]);
-                }
-           }
-        },
-        EditorState::Edit => {
-            if q_edge_interaction.is_empty() && q_edge_interaction.is_empty() {
-                return;
-            }
-            if !q_vertex_interaction.is_empty() {
-                return;
-            } else {
-                return;
-            }
-        },
-        EditorState::Delete => {
-            if q_edge_interaction.is_empty() && q_vertex_interaction.is_empty() {
-                return
-            }
-            if !q_vertex_interaction.is_empty() {
-                return;
-            } else {
-                return;
-            }
-
-        }
-    }
-}
-
-fn add_vertex(
-    mut commands: Commands,
-    mouse_coords: Res<MouseCoords>,
-    graph_assets: Res<GraphAssets>,
-) {
-    let mouse_pos = mouse_coords.world;
-    println!("Adding vertex at: {}", mouse_pos);
-    commands.spawn(default_vertex(graph_assets, Vec3::new(mouse_pos.x, mouse_pos.y, 0.)));
-}
-
-fn delete_vertex(
-    mut commands: Commands,
-
-) {
-
-}
-
-fn edit_vertex(
-    mut commands: Commands,
-    q_vertex_interaction: Query<(&Interaction, Entity), (With<Vertex>, Changed<Interaction>)>
-) {
-
-}
-
-fn add_edge(
-    mut commands: Commands,
-) {
-    
-}
-
-fn delete_edge(
-    mut commands: Commands,
-    q_edge_interaction: Query<(&Interaction, Entity), (With<Edge>, Changed<Interaction>)>
-) {
-    
-}
-
-fn edit_edge(
-    mut commands: Commands,
-    q_edge_interaction: Query<(&Interaction, Entity), (With<Edge>, Changed<Interaction>)>
-) {
-    
 }
