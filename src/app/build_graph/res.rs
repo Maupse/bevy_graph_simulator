@@ -1,6 +1,8 @@
-use bevy::{color::Color, prelude::{Camera, Entity, GlobalTransform, Handle, Mesh, Query, ResMut, Resource, Vec2, Window, With }, sprite::ColorMaterial, utils::HashMap, window::PrimaryWindow};
+use std::collections::BinaryHeap;
 
-use super::kdtree::TwoDTree;
+use bevy::{prelude::{Camera, Entity, GlobalTransform, Handle, Mesh, Query, ResMut, Resource, Vec2, Window, With }, sprite::ColorMaterial, utils::HashMap, window::PrimaryWindow};
+
+use super::kdtree::{TwoDTree};
 
 #[derive(Resource, Default)]
 pub struct MouseCoords {
@@ -56,15 +58,37 @@ impl Default for Trees {
     }
 }
 
+pub struct DistanceItem(pub Entity, pub f32);
+
+impl Eq for DistanceItem {}
+
+impl PartialEq for DistanceItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.1 == other.1
+    }
+}
+
+impl PartialOrd for DistanceItem {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for DistanceItem {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.1.partial_cmp(&other.1).unwrap_or(std::cmp::Ordering::Equal)
+    }
+}
+
 #[derive(Resource)]
 pub struct NearestPoints {
-    pub vec: Vec<Entity>,
+    pub heap: BinaryHeap<DistanceItem>,
 }
 
 impl Default for NearestPoints {
     fn default() -> Self {
         Self {
-            vec: vec![],
+            heap: BinaryHeap::new(),
         }
     }
 }

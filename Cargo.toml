@@ -6,6 +6,10 @@ edition = "2021"
 description = "A graph builder and algorithm simulator"
 license = "MIT"
 
+[[bin]]
+name = "bevy_graph_simulator_bin"
+path = "src/main.rs"
+
 [profile.release]
 # Optimizes with size in mind. For size primary use s
 opt-level = "z"

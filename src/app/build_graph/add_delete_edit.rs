@@ -36,7 +36,7 @@ fn add_vertex(
     if !kd_tree.insert(entity, mouse_pos) {
         println!("could not insert the vertex");
     }
-    println!("{:?}", kd_tree);
+    println!("{:#?}", kd_tree);
 }
 
 

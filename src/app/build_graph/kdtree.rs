@@ -1,6 +1,10 @@
-use std::{collections::BinaryHeap, ptr::NonNull, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}, thread::panicking};
+use std::{collections::{BinaryHeap, VecDeque}, ptr::NonNull, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 
-use bevy::{prelude::{Entity, Mesh, Vec2}, render::render_asset::RenderAssetUsages, sprite::ColorMesh2dBundle};
+use bevy::{math::Vec3, prelude::{Entity, Mesh, Vec2}, render::{mesh::Indices, render_asset::RenderAssetUsages}};
+
+use crate::app::SCREEN_SIZE;
+
+use super::res::DistanceItem;
 
 const DIMENSION: usize = 2;
 
@@ -46,28 +50,6 @@ pub struct TwoDTree {
 unsafe impl Sync for TwoDTree {}
 unsafe impl Send for TwoDTree {}
 
-struct Item(Entity, f32);
-
-impl Eq for Item {}
-
-impl PartialEq for Item {
-    fn eq(&self, other: &Self) -> bool {
-        self.1 == other.1
-    }
-}
-
-impl PartialOrd for Item {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Item {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.1.partial_cmp(&other.1).unwrap_or(std::cmp::Ordering::Equal)
-    }
-}
-
 
 impl TwoDTree {
     pub fn new() -> Self {
@@ -76,7 +58,8 @@ impl TwoDTree {
         }
     }
     
-    pub fn _insert_list(&mut self, list: Vec<(Entity, Vec2)>) {
+    #[allow(unused)]
+    pub fn insert_list(&mut self, list: Vec<(Entity, Vec2)>) {
             
     }
     
@@ -98,38 +81,64 @@ impl TwoDTree {
 
 
 
-    pub fn n_nearest_neighboors_search(&self, point: Vec2, n: usize) -> Option<BinaryHeap<Item>> {
-        if self.root.is_none() {
+    pub fn n_nearest_neighboors_search(&self, point: Vec2, n: usize) -> Option<BinaryHeap<DistanceItem>> {
+        if self.root.is_none() || n == 0 {
             return None;
         }
         let root = self.root.as_ref().expect("unreachable");
         let Some(guard) = Self::get_read_guard(root) else {return None};
         unsafe {
             let mut parent_stack = Self::search_parent_list(&guard, point);
-            let mut n_nearest: BinaryHeap<Item> = BinaryHeap::with_capacity(n);
+            let mut n_nearest: BinaryHeap<DistanceItem> = BinaryHeap::with_capacity(n);
             
-            let Some(mut curr_node) = parent_stack.pop() else {return None};
-            let mut nearest_node = curr_node;
-            n_nearest.push(Item(nearest_node.entity, nearest_node.location.distance(point))); 
             let c_point: [f32; 2] = point.into();
 
-            loop {
-                if parent_stack.is_empty() {
-                    return Some(n_nearest);
-                } else {
-                    curr_node = parent_stack.pop().expect("unreachable"); 
-                }
+            while let Some(curr_node) = parent_stack.pop() {
                 let cut_dim = curr_node.depth % DIMENSION; 
                 let curr_loc: [f32; 2] = curr_node.location.into();
 
-                let greatest_nearest_dist = n_nearest.peek().expect("unreachable").1;
-                let could_be_in_radius = f32::abs(curr_loc[cut_dim] - c_point[cut_dim]) < greatest_nearest_dist; 
+                if n_nearest.len() != n {
+                    n_nearest.push(DistanceItem(curr_node.entity, curr_node.location.distance(point))); 
+                    let unexplored_side = Self::get_unexplored_side(c_point, curr_loc, cut_dim);
+                    if let Some(child) = curr_node.branch[unexplored_side] {
+                        Self::explore_subtree(child.as_ref(), point, &mut parent_stack);
+                    }
+                } else {
+                    let greatest_nearest_dist = n_nearest.peek().expect("unreachable").1;
+                    let could_be_in_radius = f32::abs(curr_loc[cut_dim] - c_point[cut_dim]) < greatest_nearest_dist; 
+                    if could_be_in_radius {
+                        let dist_to_curr = curr_node.location.distance(point);
+                        if dist_to_curr < greatest_nearest_dist {
+                            n_nearest.pop();
+                            n_nearest.push(DistanceItem(curr_node.entity, dist_to_curr));
+                        }
+                        let unexplored_side = Self::get_unexplored_side(c_point, curr_loc, cut_dim);
+                        if let Some(child) = curr_node.branch[unexplored_side] {
+                            Self::explore_subtree(child.as_ref(), point, &mut parent_stack);
+                        }
+                    }
+                }
             }
-            return None;
+            Some(n_nearest)
         }
     }
     
-    pub fn nearest_neighboor_search(&self, point: Vec2) -> Option<(Entity, f32)> {
+    fn get_side(point: [f32; 2], current_location: [f32; 2], cut_dimension: usize) -> usize {
+        if point[cut_dimension] <= current_location[cut_dimension] {
+            0
+        } else {
+            1
+        }
+    }
+    fn get_unexplored_side(point: [f32; 2], current_location: [f32; 2], cut_dimension: usize) -> usize {
+        if point[cut_dimension] <= current_location[cut_dimension] {
+            1
+        } else {
+            0
+        }
+    }
+    
+    pub fn _nearest_neighboor_search(&self, point: Vec2) -> Option<(Entity, f32)> {
         if self.root.is_none() {
             return None;
         }
@@ -144,14 +153,9 @@ impl TwoDTree {
             let c_point: [f32; 2] = point.into();
             
             loop {
-                if parent_stack.is_empty() {
-                    return Some((nearest_node.entity, best_dist));
-                } else {
-                    curr_node = parent_stack.pop().expect("unreachable"); 
-                }
                 let cut_dim = curr_node.depth % DIMENSION; 
                 let curr_loc: [f32; 2] = curr_node.location.into();
-                let could_be_in_radius = f32::abs(curr_loc[cut_dim] - c_point[cut_dim]) < best_dist; 
+                let could_be_in_radius = f32::abs(curr_loc[cut_dim] - c_point[cut_dim]) <= best_dist; 
                 if could_be_in_radius {
                     let dist_to_curr = curr_node.location.distance(point);
                     if dist_to_curr < best_dist {
@@ -163,6 +167,11 @@ impl TwoDTree {
                     if let Some(subtree_root)= curr_node.branch[unexplored_side] {
                         Self::explore_subtree(subtree_root.as_ref(), point, &mut parent_stack);
                     }
+                }
+                if parent_stack.is_empty() {
+                    return Some((nearest_node.entity, best_dist));
+                } else {
+                    curr_node = parent_stack.pop().expect("unreachable"); 
                 }
             }
         }
@@ -213,7 +222,7 @@ impl TwoDTree {
     }
 
     
-    unsafe fn search_parent<'a>(guard: &'a RwLockReadGuard<'_, TreeNode>, point: Vec2) -> (&'a TreeNode, usize) {
+    unsafe fn _search_parent<'a>(guard: &'a RwLockReadGuard<'_, TreeNode>, point: Vec2) -> (&'a TreeNode, usize) {
         let root = &(**guard);
         let mut curr = root;
         let mut depth = 0;
@@ -234,23 +243,28 @@ impl TwoDTree {
     
     unsafe fn search_parent_list<'a>(guard: &'a RwLockReadGuard<'_, TreeNode>, point: Vec2) -> Vec<&'a TreeNode> {
         let root = &(**guard);
-        let mut stack = vec![root];
+        let mut stack = vec![];
         Self::explore_subtree(root, point, &mut stack);
         stack
     }
-
+    /**
+        # Explore Subtree
+        This function explores the Tree, always picking the Side that is nearer to the dimension coordinate in given depth.
+        The stacks first item will be the given root. 
+    */
     unsafe fn explore_subtree<'a>(subtree_root: &'a TreeNode, point: Vec2, stack: &mut Vec<&'a TreeNode>) {
         let mut curr = subtree_root;
         let mut depth = subtree_root.depth;
         loop {
+            stack.push(curr);
             let cut_dim  = depth % DIMENSION;
-            let c_loc = [curr.location.x, curr.location.y];
-            let c_point = [point.x, point.y];
+            let c_loc: [f32; 2] = curr.location.into();
+            let c_point: [f32; 2] = point.into();
             let side = if c_point[cut_dim] <= c_loc[cut_dim] {0} else {1};
             if let Some(next) = curr.branch[side] {
-                curr = next.as_ref();
+                let next = next.as_ref();
+                curr = next;
                 depth += 1;
-                stack.push(curr);
                 continue;
             } else {
                 return;
@@ -262,9 +276,80 @@ impl TwoDTree {
         if self.root.is_none() {
             return None;
         }
+        let Some(guard )= Self::get_read_guard(self.root.as_ref().expect("unreachable")) else {return None};
+        let root = &(*guard);
 
-        let mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
+        let mut vertices: Vec<Vec3> = vec![];
+        let mut indices: Vec<u32> = vec![];
+
+        const Z: f32 = 0.0;
+        const INFINITY: f32 = 3000f32;
+
+        let mut i = 0 as u32;
+        let mut new_line = |x1,  y1, x2, y2| {
+            vertices.push(Vec3::new(x1, y1, Z));
+            vertices.push(Vec3::new(x2, y2, Z));
+            indices.push(i);
+            indices.push(i + 1);
+            i += 2;
+        };
+
+        // exploring left you update either east or south
+        // exploring right you update either west or north
+        let limit_index = |cut_dim: usize, explore: usize| -> usize {
+            explore * 2 + cut_dim
+        };
+
+        const LEFT: usize = 0;
+        const RIGHT: usize = 1;
+        const X: usize = 0;
+        const Y: usize = 1;
         
+        const E: usize = 0usize;
+        const N: usize = 1usize;
+        const W: usize = 2usize;
+        const S: usize = 3usize;
+
+        // [east, north, west, south]
+        let initial_limit = [INFINITY, INFINITY, -INFINITY, -INFINITY];
+        let mut queue = VecDeque::new();
+        queue.push_back((root, initial_limit));
+
+        unsafe {
+            while !queue.is_empty() {
+                let mut next_iteration: VecDeque<(&TreeNode, [f32; 4])>= VecDeque::new();
+                for (node, limit) in queue {
+                    let cut_dim = node.depth % DIMENSION;
+                    let location: [f32; 2] = node.location.into();
+                    
+                    match cut_dim {
+                        X => new_line(location[X], limit[S], location[X], limit[N]),
+                        Y => new_line(limit[W], location[Y], limit[E], location[Y]),
+                        _ => panic!("unreachable"),
+                    }
+                    
+                    for explore in LEFT..=RIGHT {
+                        if let Some(child) = node.branch[explore] {
+                            let child = child.as_ref();
+                            let mut new_limit = limit.clone();
+                            let l = limit_index(cut_dim, explore); 
+                            new_limit[l] = location[cut_dim];
+                            next_iteration.push_back((child, new_limit));
+                        }
+                    } 
+                    
+                    
+                }
+                queue = next_iteration;
+            }
+        } 
+
+        let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices); 
+        mesh.insert_indices(Indices::U32(indices));
+        
+        println!("{:#?}", mesh);
+
         Some(mesh)
     }
 
