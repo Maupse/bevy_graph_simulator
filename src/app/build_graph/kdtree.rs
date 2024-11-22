@@ -69,7 +69,7 @@ impl TwoDTree {
             return true;
         } 
         // Lock the tree
-        let root = self.root.as_mut().expect("unreachable");
+        let root = self.root.as_mut().expect("root should already exist when inserting");
         let Some(mut guard) = Self::get_write_guard(root) else {return false};
         unsafe {
             let (parent, index) = Self::search_parent_mut(&mut guard, point);
@@ -85,7 +85,7 @@ impl TwoDTree {
         if self.root.is_none() || n == 0 {
             return None;
         }
-        let root = self.root.as_ref().expect("unreachable");
+        let root = self.root.as_ref().expect("n_nearest root should exist");
         let Some(guard) = Self::get_read_guard(root) else {return None};
         unsafe {
             let mut parent_stack = Self::search_parent_list(&guard, point);
@@ -104,7 +104,7 @@ impl TwoDTree {
                         Self::explore_subtree(child.as_ref(), point, &mut parent_stack);
                     }
                 } else {
-                    let greatest_nearest_dist = n_nearest.peek().expect("unreachable").1;
+                    let greatest_nearest_dist = n_nearest.peek().expect("there should be a greatest nearest distance").1;
                     let could_be_in_radius = f32::abs(curr_loc[cut_dim] - c_point[cut_dim]) < greatest_nearest_dist; 
                     if could_be_in_radius {
                         let dist_to_curr = curr_node.location.distance(point);
@@ -142,7 +142,7 @@ impl TwoDTree {
         if self.root.is_none() {
             return None;
         }
-        let root = self.root.as_ref().expect("unreachable");
+        let root = self.root.as_ref().expect("the root should exist");
         let Some(guard) = Self::get_read_guard(root) else {return None};
         unsafe {
             let mut parent_stack= Self::search_parent_list(&guard, point);
@@ -171,7 +171,7 @@ impl TwoDTree {
                 if parent_stack.is_empty() {
                     return Some((nearest_node.entity, best_dist));
                 } else {
-                    curr_node = parent_stack.pop().expect("unreachable"); 
+                    curr_node = parent_stack.pop().expect("the parent stack should still have one element"); 
                 }
             }
         }
@@ -283,7 +283,8 @@ impl TwoDTree {
         let mut indices: Vec<u32> = vec![];
 
         const Z: f32 = 0.0;
-        const INFINITY: f32 = 3000f32;
+        const INFINITY: f32 = f32::MAX;
+        const NEGATIVE_INFINITY: f32 = f32::MIN;
 
         let mut i = 0 as u32;
         let mut new_line = |x1,  y1, x2, y2| {
@@ -311,7 +312,7 @@ impl TwoDTree {
         const S: usize = 3usize;
 
         // [east, north, west, south]
-        let initial_limit = [INFINITY, INFINITY, -INFINITY, -INFINITY];
+        let initial_limit = [INFINITY, INFINITY, NEGATIVE_INFINITY, NEGATIVE_INFINITY];
         let mut queue = VecDeque::new();
         queue.push_back((root, initial_limit));
 
@@ -325,7 +326,7 @@ impl TwoDTree {
                     match cut_dim {
                         X => new_line(location[X], limit[S], location[X], limit[N]),
                         Y => new_line(limit[W], location[Y], limit[E], location[Y]),
-                        _ => panic!("unreachable"),
+                        _ => panic!("a dimension higher than 1 should be unreachable"),
                     }
                     
                     for explore in LEFT..=RIGHT {
@@ -337,8 +338,6 @@ impl TwoDTree {
                             next_iteration.push_back((child, new_limit));
                         }
                     } 
-                    
-                    
                 }
                 queue = next_iteration;
             }
@@ -347,8 +346,6 @@ impl TwoDTree {
         let mut mesh = Mesh::new(bevy::render::mesh::PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices); 
         mesh.insert_indices(Indices::U32(indices));
-        
-        println!("{:#?}", mesh);
 
         Some(mesh)
     }

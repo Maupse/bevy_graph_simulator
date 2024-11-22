@@ -1,8 +1,12 @@
-use bevy::{app::Update, input::ButtonInput, math::Vec3, prelude::{in_state, AppExtStates, Changed, Commands, Entity, IntoSystemConfigs, IntoSystemSetConfigs, KeyCode, MouseButton, Plugin, Query, Res, ResMut, With}};
+use bevy::{app::Update, math::Vec3, prelude::{in_state, AppExtStates, Changed, Commands, Entity, IntoSystemConfigs, Plugin, Query, Res, ResMut, With}};
+use leafwing_input_manager::prelude::ActionState;
 
-use crate::app::build_graph::components::default_vertex;
+use crate::app::{build_graph::components::default_vertex, input::{NormalInput}};
 
-use super::{components::{Edge, EditorState, GraphInteraction, Vertex}, res::{GraphAssets, MouseCoords, Trees}};
+use super::{components::{Edge, EditorState, GraphInteraction, Vertex}, res::{GraphAssets, InputCoords, Trees}};
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_module::log_js;
 pub struct AddDeleteEditPlugin;
 impl Plugin for AddDeleteEditPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
@@ -21,22 +25,28 @@ impl Plugin for AddDeleteEditPlugin {
 
 fn add_vertex(
     mut commands: Commands,
-    mouse_coords: Res<MouseCoords>,
     graph_assets: Res<GraphAssets>,
     mut trees: ResMut<Trees>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
+    input_pos: Res<InputCoords>,
+    q_my_action: Query<&ActionState<NormalInput>>,
 ) {
-    if !mouse_input.just_pressed(MouseButton::Left) {
+    let my_action = q_my_action.single();
+    if !my_action.just_pressed(&NormalInput::Select) {
         return;
     } 
-    let mouse_pos = mouse_coords.world;
-    println!("Adding vertex at: {}", mouse_pos);
-    let entity = commands.spawn(default_vertex(graph_assets, Vec3::new(mouse_pos.x, mouse_pos.y, 0.))).id();
+
+    #[cfg(target_arch = "wasm32")] 
+    log_js("just pressed select");
+    println!("just pressed select");
+    
+    
+    let Some( position ) = input_pos.world else {return};
+
+    let entity = commands.spawn(default_vertex(graph_assets, Vec3::new(position.x, position.y, 0.))).id();
     let kd_tree = &mut trees.kd;
-    if !kd_tree.insert(entity, mouse_pos) {
+    if !kd_tree.insert(entity, position) {
         println!("could not insert the vertex");
     }
-    println!("{:#?}", kd_tree);
 }
 
 

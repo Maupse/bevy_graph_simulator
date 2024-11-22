@@ -1,12 +1,19 @@
 mod build_graph;
 mod camera;
+mod input;
 
 use bevy::{app::PluginGroup, math::Vec2, prelude::{default, App, DefaultPlugins}, window::{Window, WindowPlugin, WindowResolution}};
 use build_graph::BuildGraphPlugin;
 use camera::MyCameraPlugin;
+use input::MyInputPlugin;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_module::log_js;
 
 pub const SCREEN_SIZE: Vec2 = Vec2::new(1280f32, 720f32);
 pub fn run() {
+    #[cfg(target_arch = "wasm32")]
+    log_js("Attempting to run App...");
+
     let mut app = App::new();
     
     let primary_window = Window {
@@ -21,9 +28,9 @@ pub fn run() {
     .add_plugins((
         BuildGraphPlugin,
         MyCameraPlugin,
+        MyInputPlugin,
     ))
     ;
-
 
     #[cfg(not(target_arch = "wasm32"))] 
     {
@@ -32,4 +39,8 @@ pub fn run() {
     }
  
     app.run();
+    
+
+    #[cfg(target_arch = "wasm32")]
+    log_js("Runner was called via app.run()");
 }

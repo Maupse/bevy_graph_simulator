@@ -9,11 +9,19 @@ pub mod wasm_module {
     #[wasm_bindgen]
     extern "C" {
         fn alert(s: &str);
+
+        #[wasm_bindgen(js_namespace = console)]
+        fn log(s: &str);
     }
     
     #[wasm_bindgen]
-    pub fn greet(name: &str) {
-        alert(&format!("Hello, {name}"));
+    pub fn alert_js(message: &str) {
+        alert(message);
+    }
+    
+    #[wasm_bindgen]
+    pub fn log_js(message: &str) {
+        log(message);
     }
     
     #[wasm_bindgen]

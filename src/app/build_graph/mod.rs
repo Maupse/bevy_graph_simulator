@@ -1,5 +1,5 @@
 mod components;
-mod res;
+pub mod res;
 mod graph_interaction;
 mod kdtree;
 mod add_delete_edit;
@@ -7,7 +7,7 @@ mod add_delete_edit;
 
 use bevy::{app::Startup, asset::Assets, color::Color, prelude::{App, Camera2dBundle, Circle, Commands, Mesh, Plugin, ResMut, Update}, render::camera::CameraPlugin, sprite::ColorMaterial};
 use graph_interaction::GraphInteractionPlugin;
-use res::{update_mouse_coords, GraphAssets, MouseCoords, Trees};
+use res::{GraphAssets, InputCoords, Trees};
 use add_delete_edit::AddDeleteEditPlugin;
 
 pub struct BuildGraphPlugin;
@@ -20,12 +20,9 @@ impl Plugin for BuildGraphPlugin {
                 GraphInteractionPlugin,
             )
         )
-        .init_resource::<MouseCoords>()
+        .init_resource::<InputCoords>()
         .init_resource::<Trees>()
-        .add_systems(Startup, (init_mesh))
-        .add_systems(Update, (
-                update_mouse_coords,
-       ));
+        .add_systems(Startup, init_mesh);
     }
 }
 
