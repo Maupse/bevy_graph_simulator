@@ -9,15 +9,25 @@ use input::MyInputPlugin;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_module::log_js;
 
-pub const SCREEN_SIZE: Vec2 = Vec2::new(1280f32, 720f32);
 pub fn run() {
-    #[cfg(target_arch = "wasm32")]
-    log_js("Attempting to run App...");
+    let resolution = {
+        #[cfg(target_arch = "wasm32")]
+        {
+            log_js("getting window size and attempting to run app");
+            crate::wasm_module::get_app_window_size()
+        }
+        
+        #[cfg(not(target_arch = "wasm32"))]
+        {crate::not_wasm_module::get_app_window_size()}
+    };
+
+    
+    let Some(resolution) = resolution else {panic!("The resolution has not been found")};
 
     let mut app = App::new();
     
     let primary_window = Window {
-        resolution: WindowResolution::new(SCREEN_SIZE.x, SCREEN_SIZE.y),
+        resolution,
         title: "Bevy Graph Simulator".to_string(),
         canvas: Some("#bevy_graph_simulator_canvas".to_string()),
         ..default()

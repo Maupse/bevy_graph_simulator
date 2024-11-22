@@ -2,8 +2,6 @@ use std::{collections::{BinaryHeap, VecDeque}, ptr::NonNull, sync::{Arc, RwLock,
 
 use bevy::{math::Vec3, prelude::{Entity, Mesh, Vec2}, render::{mesh::Indices, render_asset::RenderAssetUsages}};
 
-use crate::app::SCREEN_SIZE;
-
 use super::res::DistanceItem;
 
 const DIMENSION: usize = 2;

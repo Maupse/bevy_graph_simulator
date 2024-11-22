@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, default, process::Command};
+use std::{borrow::Borrow, collections::BinaryHeap, default, process::Command};
 
 use bevy::{app::Plugin, asset::{Assets, Handle}, color::Color, input::ButtonInput, math::Vec3, pbr::graph, prelude::{default, Commands, DespawnRecursiveExt, DetectChanges, Entity, Local, Mesh, MouseButton, Or, Query, Res, ResMut, Transform, Update, With}, sprite::{ColorMaterial, ColorMesh2dBundle, Mesh2dHandle}};
 use leafwing_input_manager::prelude::ActionState;
@@ -33,8 +33,15 @@ fn update_interactions(
     mut q_interaction: Query<&mut GraphInteraction>,
     q_action: Query<&ActionState<NormalInput>>,
     nearest_points: Res<NearestPoints>,
+    mut last_nearest: Local<BinaryHeap<DistanceItem>>,
 ) {
     let action = q_action.single();
+    for DistanceItem(entity, _) in last_nearest.iter() {
+        if let Ok(mut interaction) = q_interaction.get_mut(*entity) {
+            *interaction = GraphInteraction::None;
+        }
+    }
+
     for DistanceItem(entity, dist) in nearest_points.heap.iter() {
         if let Ok(mut interaction) = q_interaction.get_mut(*entity) {
             if *dist <= RADIUS {
@@ -48,6 +55,7 @@ fn update_interactions(
             }
         }
     }
+    *last_nearest = nearest_points.heap.clone();
 }
 
 fn color_interactions(

@@ -1,0 +1,1 @@
+wasm-pack build --no-opt --target web --out-dir "C:\Users\maups\Documents\React_Websites\frontend\src\wasm"

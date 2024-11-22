@@ -105,7 +105,7 @@ fn handle_selection(
             }
             state.press(&NormalInput::Select);
         }
-    } else {
+    } else if state.pressed(&NormalInput::Select) {
         state.release(&NormalInput::Select);
     }
 
@@ -134,10 +134,6 @@ fn handle_touch_input(
             },
             TouchPhase::Moved => {
                 input_pos.world = camera.viewport_to_world_2d(camera_transform, ev.position);
-                #[cfg(target_arch = "wasm32")]
-                {
-                    log_js( &format!("Moving touch with id {} and position {} converted to world {:?}", ev.id, ev.position, input_pos.world));
-                }
             },
             TouchPhase::Ended => {
                 input_pos.world = camera.viewport_to_world_2d(camera_transform, ev.position);

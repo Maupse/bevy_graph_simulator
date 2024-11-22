@@ -42,6 +42,7 @@ impl Default for Trees {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct DistanceItem(pub Entity, pub f32);
 
 impl Eq for DistanceItem {}
